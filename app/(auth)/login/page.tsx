@@ -17,14 +17,28 @@ function LoginForm() {
 
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [fieldErrors, setFieldErrors] = useState<{ email?: string; password?: string }>({});
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
   // Show success message if user just reset their password
   const justReset = searchParams.get("reset") === "success";
 
+  function validateFields() {
+    const errors: { email?: string; password?: string } = {};
+    if (!email.trim()) errors.email = "Email address is required.";
+    if (!password) errors.password = "Password is required.";
+    return errors;
+  }
+
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
+    if (loading) return;
+
+    const errors = validateFields();
+    setFieldErrors(errors);
+    if (Object.keys(errors).length > 0) return;
+
     setError(null);
     setLoading(true);
 
@@ -76,8 +90,12 @@ function LoginForm() {
             autoComplete="email"
             required
             value={email}
-            onChange={(e) => setEmail(e.target.value)}
+            onChange={(e) => {
+              setEmail(e.target.value);
+              if (fieldErrors.email) setFieldErrors((prev) => ({ ...prev, email: undefined }));
+            }}
             placeholder="you@example.com"
+            error={fieldErrors.email}
           />
         </div>
 
@@ -100,8 +118,13 @@ function LoginForm() {
             autoComplete="current-password"
             required
             value={password}
-            onChange={(e) => setPassword(e.target.value)}
+            onChange={(e) => {
+              setPassword(e.target.value);
+              if (fieldErrors.password) setFieldErrors((prev) => ({ ...prev, password: undefined }));
+              if (error) setError(null);
+            }}
             placeholder="••••••••"
+            error={fieldErrors.password}
           />
         </div>
 
@@ -112,6 +135,7 @@ function LoginForm() {
           variant="primary"
           size="lg"
           loading={loading}
+          disabled={loading}
           className="w-full mt-2"
         >
           Sign in

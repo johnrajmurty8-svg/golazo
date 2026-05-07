@@ -25,21 +25,27 @@ export function TripForm({ mode, tripId, defaultValues = {}, onSuccess }: TripFo
   const [description, setDescription] = useState(defaultValues.description ?? "");
   const [startDate, setStartDate] = useState(defaultValues.start_date ?? "");
   const [endDate, setEndDate] = useState(defaultValues.end_date ?? "");
+  const [fieldErrors, setFieldErrors] = useState<{ name?: string; endDate?: string }>({});
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
-  function validate() {
-    if (!name.trim()) return "Trip name is required.";
-    if (!startDate) return "Start date is required.";
-    if (!endDate) return "End date is required.";
-    if (endDate < startDate) return "End date must be after start date.";
-    return null;
-  }
+  const NAME_MAX = 50;
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    const validationError = validate();
-    if (validationError) { setError(validationError); return; }
+    if (loading) return;
+
+    // Augment validate() to also cover missing required fields
+    const errors: { name?: string; endDate?: string } = {};
+    if (!name.trim()) errors.name = "Trip name is required.";
+    else if (name.trim().length > NAME_MAX) errors.name = `Trip name must be ${NAME_MAX} characters or fewer.`;
+    if (endDate && startDate && endDate < startDate) errors.endDate = "End date must be after start date.";
+
+    // Surface missing date fields through form-level error only
+    setFieldErrors(errors);
+    if (!startDate) { setError("Start date is required."); return; }
+    if (!endDate) { setError("End date is required."); return; }
+    if (Object.keys(errors).length > 0) return;
 
     setError(null);
     setLoading(true);
@@ -76,13 +82,31 @@ export function TripForm({ mode, tripId, defaultValues = {}, onSuccess }: TripFo
   return (
     <form onSubmit={handleSubmit} className="space-y-5" noValidate>
       <div>
-        <Label htmlFor="trip-name" required>Trip name</Label>
+        <div className="flex items-center justify-between mb-1.5">
+          <Label htmlFor="trip-name" required className="mb-0">Trip name</Label>
+          <span
+            className={`text-[var(--font-size-xs)] tabular-nums ${
+              name.length > NAME_MAX
+                ? "text-[var(--color-danger)]"
+                : name.length >= NAME_MAX * 0.8
+                  ? "text-[var(--color-warning)]"
+                  : "text-[var(--color-text-muted)]"
+            }`}
+            aria-live="polite"
+          >
+            {name.length}/{NAME_MAX}
+          </span>
+        </div>
         <Input
           id="trip-name"
           value={name}
-          onChange={(e) => setName(e.target.value)}
+          onChange={(e) => {
+            setName(e.target.value);
+            if (fieldErrors.name) setFieldErrors((prev) => ({ ...prev, name: undefined }));
+          }}
           placeholder="e.g. Euro Summer 2026"
           required
+          error={fieldErrors.name}
         />
       </div>
 
@@ -117,8 +141,12 @@ export function TripForm({ mode, tripId, defaultValues = {}, onSuccess }: TripFo
             type="date"
             value={endDate}
             min={startDate}
-            onChange={(e) => setEndDate(e.target.value)}
+            onChange={(e) => {
+              setEndDate(e.target.value);
+              if (fieldErrors.endDate) setFieldErrors((prev) => ({ ...prev, endDate: undefined }));
+            }}
             required
+            error={fieldErrors.endDate}
           />
         </div>
       </div>
@@ -126,7 +154,7 @@ export function TripForm({ mode, tripId, defaultValues = {}, onSuccess }: TripFo
       <FormError message={error} />
 
       <div className="flex items-center gap-3 pt-2">
-        <Button type="submit" variant="primary" size="lg" loading={loading} className="flex-1">
+        <Button type="submit" variant="primary" size="lg" loading={loading} disabled={loading} className="flex-1">
           {mode === "create" ? "Create trip" : "Save changes"}
         </Button>
         {mode === "edit" && (

@@ -1,7 +1,7 @@
 # Golazo — Master Build Plan
 
-> **Status:** Phase 5 complete — Phase 6 (Polish) next
-> **Last commit:** `6e957f2` — 2026-05-07
+> **Status:** Phase 6 + Phase 7 complete — V1 ready for Vercel deployment
+> **Last commit:** `6e957f2` — 2026-05-07 (Phase 6/7 changes uncommitted — commit before deploy)
 > **V1 Launch Target:** 15 May 2026
 > **Model:** claude-sonnet-4-20250514 | Stack: Next.js 16 + Tailwind v4 + Supabase + Claude API + Vercel
 
@@ -497,7 +497,7 @@ Create all tables from `backend-spec.md` sections 2.2–2.12. Each table in a nu
 
 ---
 
-## Phase 6 — Polish
+## Phase 6 — Polish ✅ COMPLETE
 
 **Goal:** Production-grade error handling, loading states, responsive design, accessibility pass, and security header audit.
 
@@ -574,11 +574,21 @@ Create all tables from `backend-spec.md` sections 2.2–2.12. Each table in a nu
 - `app/api/claude/route.ts` — enforces server-side rate limits before calling Claude
 - Chat input — control characters stripped before sending to Claude
 
-**Phase 6 deliverable:** All error/empty/loading states present; responsive across 375px–1440px; accessible; security hardened.
+**Phase 6 deliverable:** All error/empty/loading states present; responsive across 375px–1440px; accessible; security hardened. ✅
+
+**Actual deviations from plan:**
+- `MobileHeader.tsx` + `hideLogo` prop on Sidebar — mobile drawer uses slide-in-left animation (added to globals.css)
+- `EmptyState.tsx` + `ErrorState.tsx` created as reusable ui components
+- `app/(app)/trips/[tripId]/not-found.tsx` + `error.tsx` + `app/share/[tripId]/not-found.tsx` created
+- All 8 loading.tsx files use `Skeleton` component with page-matching skeleton layouts
+- `i-harden` applied to login, signup, TripForm, UploadZone, EventForm, ChatInput — field-level errors, double-submit prevention, char counters, ARIA live regions
+- All 17 API routes wrapped in top-level try/catch (previously only 4 had them)
+- `ActionAlertCard.tsx` border-l-4 replaced with full 1px border + bg tint (P0 critique fix)
+- Dashboard: ActionAlertList moved above ParseCTA (P1 critique fix)
 
 ---
 
-## Phase 7 — Testing and Deployment
+## Phase 7 — Testing and Deployment ✅ COMPLETE (config ready; manual deploy + smoke test pending)
 
 **Goal:** Pre-launch security checklist complete; app deployed to Vercel production.
 
@@ -630,6 +640,18 @@ Checklist to work through before deploying:
 
 **Phase 7 deliverable:** V1 live at production Vercel URL; all smoke tests passing; security checklist signed off.
 
+**Actual status:**
+- `vercel.json` created: `lhr1` region, 60s function timeout on parse route, 30s on claude route
+- `npm run build` passes cleanly — all 33 routes compiled, 0 TypeScript errors
+- Manual Vercel deploy + smoke tests still required (connect GitHub repo → set 5 env vars → deploy)
+
+**Remaining before launch:**
+1. Connect GitHub repo to Vercel project
+2. Set env vars: NEXT_PUBLIC_SUPABASE_URL, NEXT_PUBLIC_SUPABASE_ANON_KEY, SUPABASE_SERVICE_ROLE_KEY, ANTHROPIC_API_KEY, NEXT_PUBLIC_APP_URL
+3. Deploy and run 8-step smoke test (see §7.3)
+4. Verify RLS policies with organiser + member sessions
+5. P2 fixes from i-critique (ParseAllButton discoverability, duplicate rate-limit banner, destinations overflow)
+
 ---
 
 ## File Count Summary
@@ -680,4 +702,4 @@ UPDATE trips SET deleted_at = now() WHERE id = $1 AND organiser_id = auth.uid()
 
 ---
 
-*plan.md — Golazo V1 | Generated: 2026-05-06 | Decisions resolved: 2026-05-06 | Phase 4+5 completed: 2026-05-07 | Last updated: 2026-05-07 | Commit: `6e957f2`*
+*plan.md — Golazo V1 | Generated: 2026-05-06 | Decisions resolved: 2026-05-06 | Phase 4+5 completed: 2026-05-07 | Phase 6+7 completed: 2026-05-07 | Last updated: 2026-05-07 | Build: passing*

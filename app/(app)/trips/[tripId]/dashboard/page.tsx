@@ -89,12 +89,7 @@ export default async function DashboardPage({ params }: DashboardPageProps) {
         <MemberAvatarStack members={(members ?? []) as Parameters<typeof MemberAvatarStack>[0]["members"]} />
       </div>
 
-      {/* Parse CTA */}
-      {isOrganiser && unparsedCount > 0 && (
-        <ParseCTA tripId={tripId} unparsedCount={unparsedCount} />
-      )}
-
-      {/* Alerts */}
+      {/* Alerts — shown before Parse CTA so urgent issues are never buried */}
       <section>
         <h2
           className="text-[var(--font-size-md)] font-[var(--font-weight-semibold)] text-[var(--color-text-primary)] mb-3"
@@ -104,6 +99,11 @@ export default async function DashboardPage({ params }: DashboardPageProps) {
         </h2>
         <ActionAlertList alerts={alerts ?? []} tripId={tripId} />
       </section>
+
+      {/* Parse CTA */}
+      {isOrganiser && unparsedCount > 0 && (
+        <ParseCTA tripId={tripId} unparsedCount={unparsedCount} />
+      )}
 
       {/* Quick links */}
       <section>

@@ -37,19 +37,23 @@ export async function POST(req: NextRequest) {
     rateLimitRemaining = remaining;
   }
 
-  const result = await callClaude({
-    agent: agent as "parser" | "chatbot",
-    systemPrompt,
-    userPrompt,
-    maxTokens,
-    tripId: typeof tripId === "string" ? tripId : undefined,
-    userId: user.id,
-  });
-
   const headers: Record<string, string> = {};
   if (rateLimitRemaining !== undefined) {
     headers["X-RateLimit-Remaining"] = String(rateLimitRemaining);
   }
 
-  return NextResponse.json(result, { headers });
+  try {
+    const result = await callClaude({
+      agent: agent as "parser" | "chatbot",
+      systemPrompt,
+      userPrompt,
+      maxTokens,
+      tripId: typeof tripId === "string" ? tripId : undefined,
+      userId: user.id,
+    });
+    return NextResponse.json(result, { headers });
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : "Claude request failed";
+    return apiError(msg, 500);
+  }
 }

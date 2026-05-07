@@ -24,12 +24,17 @@ export function EventForm({ tripId, dayId, editingEvent, onSaved, onCancel }: Ev
   const [location, setLocation] = useState(editingEvent?.location ?? "");
   const [description, setDescription] = useState(editingEvent?.description ?? "");
   const [eventType, setEventType] = useState<EventType>(editingEvent?.event_type ?? "general");
+  const [titleError, setTitleError] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    if (!title.trim()) { setError("Title is required."); return; }
+    if (loading) return;
+    if (!title.trim()) {
+      setTitleError("Title is required.");
+      return;
+    }
     setError(null);
     setLoading(true);
 
@@ -103,9 +108,13 @@ export function EventForm({ tripId, dayId, editingEvent, onSaved, onCancel }: Ev
         <Input
           id="event-title"
           value={title}
-          onChange={(e) => setTitle(e.target.value)}
+          onChange={(e) => {
+            setTitle(e.target.value);
+            if (titleError) setTitleError(null);
+          }}
           placeholder="e.g. Dinner at Can Culleretes"
           required
+          error={titleError ?? undefined}
         />
       </div>
 
@@ -134,7 +143,7 @@ export function EventForm({ tripId, dayId, editingEvent, onSaved, onCancel }: Ev
       <FormError message={error} />
 
       <div className="flex gap-2 pt-1">
-        <Button type="submit" variant="primary" size="sm" loading={loading}>
+        <Button type="submit" variant="primary" size="sm" loading={loading} disabled={loading}>
           {editingEvent ? "Save changes" : "Add event"}
         </Button>
         <Button type="button" variant="ghost" size="sm" onClick={onCancel}>

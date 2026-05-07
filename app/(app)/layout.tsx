@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { Sidebar } from "@/components/ui/Sidebar";
+import { MobileHeader } from "@/components/ui/MobileHeader";
 import { ToastContainer } from "@/components/ui/Toast";
 
 interface AppLayoutProps {
@@ -17,14 +18,12 @@ export default async function AppLayout({ children }: AppLayoutProps) {
     redirect("/login");
   }
 
-  // Fetch profile
   const { data: profile } = await supabase
     .from("profiles")
     .select("display_name, avatar_url")
     .eq("id", user.id)
     .single();
 
-  // Fetch all of the user's trips (Sidebar derives active trip from pathname client-side)
   const { data: trips } = await supabase
     .from("trips")
     .select("id, name, start_date, end_date, organiser_id, share_token, cover_image_url, description, deleted_at, created_at, updated_at")
@@ -32,25 +31,28 @@ export default async function AppLayout({ children }: AppLayoutProps) {
     .order("start_date", { ascending: true });
 
   const userName = profile?.display_name ?? user.email?.split("@")[0] ?? "User";
+  const sidebarProps = {
+    trips: trips ?? [],
+    userId: user.id,
+    userName,
+    userAvatarUrl: profile?.avatar_url,
+  };
 
   return (
-    <div className="flex h-screen overflow-hidden bg-[var(--color-bg)]">
-      {/* Sidebar — fixed left; derives currentTripId from pathname client-side */}
+    <div className="flex flex-col md:flex-row h-screen overflow-hidden bg-[var(--color-bg)]">
+      {/* Desktop sidebar — fixed left, hidden on mobile */}
       <div className="hidden md:flex w-[260px] shrink-0 flex-col h-full">
-        <Sidebar
-          trips={trips ?? []}
-          userId={user.id}
-          userName={userName}
-          userAvatarUrl={profile?.avatar_url}
-        />
+        <Sidebar {...sidebarProps} />
       </div>
+
+      {/* Mobile: top bar + slide-out drawer */}
+      <MobileHeader {...sidebarProps} />
 
       {/* Main content — scrollable */}
       <main className="flex-1 flex flex-col min-w-0 overflow-y-auto">
         {children}
       </main>
 
-      {/* Toast notifications */}
       <ToastContainer />
     </div>
   );

@@ -191,6 +191,11 @@ h1, h2, h3, h4, h5, h6 {
   to   { transform: translateX(0); }
 }
 
+@keyframes slide-in-left {
+  from { transform: translateX(-100%); }
+  to   { transform: translateX(0); }
+}
+
 @keyframes progress-indeterminate {
   0%   { width: 0%; margin-left: 0%; }
   50%  { width: 60%; margin-left: 20%; }

@@ -22,10 +22,10 @@ export function ActionAlertCard({ alert, tripId }: ActionAlertCardProps) {
     ? SECTION_MAP[alert.related_entity_type] ?? "dashboard"
     : "dashboard";
 
-  const severityStyles = {
-    critical: "border-[var(--color-danger)] bg-[var(--color-danger-bg)]",
-    warning: "border-[var(--color-warning)] bg-[var(--color-warning-bg)]",
-    info: "border-blue-400 bg-blue-50",
+  const severityBg = {
+    critical: "bg-[var(--color-danger-bg)]",
+    warning: "bg-[var(--color-warning-bg)]",
+    info: "bg-blue-50",
   }[alert.severity];
 
   const iconColor = {
@@ -36,11 +36,12 @@ export function ActionAlertCard({ alert, tripId }: ActionAlertCardProps) {
 
   return (
     <div
-      className={`flex items-start gap-3 rounded-[var(--radius-md)] border-l-4 p-4 cursor-pointer hover:brightness-95 transition-all duration-100 ${severityStyles}`}
+      className={`flex items-start gap-3 rounded-[var(--radius-md)] border border-[var(--color-border)] p-4 cursor-pointer hover:shadow-[var(--shadow-sm)] transition-all duration-100 ${severityBg}`}
       onClick={() => router.push(`/trips/${tripId}/${target}`)}
       role="button"
       tabIndex={0}
       onKeyDown={(e) => e.key === "Enter" && router.push(`/trips/${tripId}/${target}`)}
+      aria-label={`${alert.severity} alert: ${alert.title}`}
     >
       <AlertTriangle size={16} strokeWidth={1.5} className={`shrink-0 mt-0.5 ${iconColor}`} />
       <div className="flex-1 min-w-0">

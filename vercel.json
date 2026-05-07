@@ -1,0 +1,14 @@
+{
+  "buildCommand": "npm run build",
+  "outputDirectory": ".next",
+  "framework": "nextjs",
+  "regions": ["lhr1"],
+  "functions": {
+    "app/api/trips/[tripId]/parse/route.ts": {
+      "maxDuration": 60
+    },
+    "app/api/claude/route.ts": {
+      "maxDuration": 30
+    }
+  }
+}

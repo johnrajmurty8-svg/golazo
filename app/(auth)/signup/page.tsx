@@ -16,7 +16,7 @@ export default function SignupPage() {
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [displayName, setDisplayName] = useState("");
-  const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
+  const [fieldErrors, setFieldErrors] = useState<Partial<Record<string, string>>>({});
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [success, setSuccess] = useState(false);
@@ -37,6 +37,7 @@ export default function SignupPage() {
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
+    if (loading) return;
     setError(null);
 
     const errors = validate();
@@ -136,7 +137,10 @@ export default function SignupPage() {
             autoComplete="name"
             required
             value={displayName}
-            onChange={(e) => setDisplayName(e.target.value)}
+            onChange={(e) => {
+              setDisplayName(e.target.value);
+              if (fieldErrors.name) setFieldErrors((prev) => ({ ...prev, name: undefined }));
+            }}
             placeholder="John Smith"
             error={fieldErrors.name}
           />
@@ -153,7 +157,10 @@ export default function SignupPage() {
             autoComplete="email"
             required
             value={email}
-            onChange={(e) => setEmail(e.target.value)}
+            onChange={(e) => {
+              setEmail(e.target.value);
+              if (fieldErrors.email) setFieldErrors((prev) => ({ ...prev, email: undefined }));
+            }}
             placeholder="you@example.com"
             error={fieldErrors.email}
           />
@@ -170,13 +177,20 @@ export default function SignupPage() {
             autoComplete="new-password"
             required
             value={password}
-            onChange={(e) => setPassword(e.target.value)}
+            onChange={(e) => {
+              setPassword(e.target.value);
+              if (fieldErrors.password) setFieldErrors((prev) => ({ ...prev, password: undefined }));
+            }}
             placeholder="••••••••"
             error={fieldErrors.password}
           />
           {!fieldErrors.password && (
             <p className="mt-1 text-[var(--font-size-xs)] text-[var(--color-text-muted)]">
-              Min 8 characters, one uppercase letter, one number
+              {password.length === 0
+                ? "Min 8 characters, one uppercase letter, one number"
+                : PASSWORD_REGEX.test(password)
+                  ? "Looks good"
+                  : `${password.length < 8 ? "Too short · " : ""}${!/[A-Z]/.test(password) ? "Add an uppercase letter · " : ""}${!/\d/.test(password) ? "Add a number" : ""}`.replace(/ · $/, "")}
             </p>
           )}
         </div>
@@ -192,7 +206,10 @@ export default function SignupPage() {
             autoComplete="new-password"
             required
             value={confirmPassword}
-            onChange={(e) => setConfirmPassword(e.target.value)}
+            onChange={(e) => {
+              setConfirmPassword(e.target.value);
+              if (fieldErrors.confirmPassword) setFieldErrors((prev) => ({ ...prev, confirmPassword: undefined }));
+            }}
             placeholder="••••••••"
             error={fieldErrors.confirmPassword}
           />
@@ -205,6 +222,7 @@ export default function SignupPage() {
           variant="primary"
           size="lg"
           loading={loading}
+          disabled={loading}
           className="w-full mt-2"
         >
           Create account

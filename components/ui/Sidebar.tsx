@@ -17,7 +17,6 @@ import { createClient } from "@/lib/supabase/client";
 import { SidebarNavItem } from "./SidebarNavItem";
 import { TripListItem } from "@/components/trip/TripListItem";
 import { Avatar } from "./Avatar";
-import { cn } from "@/lib/utils/cn";
 import type { Trip } from "@/types/database";
 
 interface SidebarProps {
@@ -25,16 +24,15 @@ interface SidebarProps {
   userId: string;
   userName: string;
   userAvatarUrl?: string | null;
+  /** Set true when rendered inside the mobile drawer (drawer provides its own header) */
+  hideLogo?: boolean;
 }
 
-export function Sidebar({ trips, userId, userName, userAvatarUrl }: SidebarProps) {
+export function Sidebar({ trips, userId, userName, userAvatarUrl, hideLogo }: SidebarProps) {
   const pathname = usePathname();
   const router = useRouter();
 
-  // Derive currentTripId from pathname client-side
   const currentTripId = pathname.match(/\/trips\/([0-9a-f-]{36})/)?.[1];
-
-  // Determine role from organiser_id (available from server trip list)
   const currentTrip = trips.find((t) => t.id === currentTripId);
   const isOrganiser = currentTrip ? currentTrip.organiser_id === userId : false;
 
@@ -52,18 +50,20 @@ export function Sidebar({ trips, userId, userName, userAvatarUrl }: SidebarProps
       className="flex flex-col h-full bg-[var(--color-sidebar-bg)] text-[var(--color-sidebar-text)] overflow-hidden"
       aria-label="Main navigation"
     >
-      {/* Logo */}
-      <div className="flex items-center gap-2.5 px-5 h-[64px] shrink-0 border-b border-white/10">
-        <div className="w-7 h-7 rounded-[var(--radius-sm)] bg-[var(--color-primary)] flex items-center justify-center">
-          <span className="text-white font-[var(--font-weight-bold)] text-sm leading-none">G</span>
+      {/* Logo — omitted when rendered inside the mobile drawer */}
+      {!hideLogo && (
+        <div className="flex items-center gap-2.5 px-5 h-[64px] shrink-0 border-b border-white/10">
+          <div className="w-7 h-7 rounded-[var(--radius-sm)] bg-[var(--color-primary)] flex items-center justify-center">
+            <span className="text-white font-[var(--font-weight-bold)] text-sm leading-none">G</span>
+          </div>
+          <span
+            className="text-[var(--font-size-lg)] font-[var(--font-weight-bold)] text-white tracking-tight"
+            style={{ fontFamily: "var(--font-display)" }}
+          >
+            Golazo
+          </span>
         </div>
-        <span
-          className="text-[var(--font-size-lg)] font-[var(--font-weight-bold)] text-white tracking-tight"
-          style={{ fontFamily: "var(--font-display)" }}
-        >
-          Golazo
-        </span>
-      </div>
+      )}
 
       <div className="flex-1 flex flex-col overflow-y-auto py-4 gap-6">
         {/* Trip list */}
