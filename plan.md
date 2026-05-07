@@ -1,8 +1,9 @@
 # Golazo — Master Build Plan
 
-> **Status:** Draft — awaiting approval before any code is written.
+> **Status:** Phase 5 complete — Phase 6 (Polish) next
+> **Last commit:** `7e6df8c` — 2026-05-07
 > **V1 Launch Target:** 15 May 2026
-> **Model:** claude-sonnet-4-20250514 | Stack: Next.js 14 + Supabase + Claude API + Vercel
+> **Model:** claude-sonnet-4-20250514 | Stack: Next.js 16 + Tailwind v4 + Supabase + Claude API + Vercel
 
 ---
 
@@ -16,7 +17,7 @@
 
 ---
 
-## Phase 1 — Project Setup
+## Phase 1 — Project Setup ✅ COMPLETE
 
 **Goal:** A clean, runnable Next.js 14 scaffold with the correct folder structure, all dependencies installed, environment variables wired, and a passing dev server.
 
@@ -153,11 +154,17 @@ types/
 - `app/layout.tsx` — root HTML shell; Inter font; no UI (just `{children}`)
 - `app/page.tsx` — server component; redirects authenticated users to `/trips`, unauthenticated to `/login`
 
-**Phase 1 deliverable:** `npm run dev` starts clean, middleware active, design tokens available.
+**Phase 1 deliverable:** `npm run dev` starts clean, middleware active, design tokens available. ✅
+
+**Actual deviations from plan:**
+- Next.js 16 installed (not 14); Tailwind v4 — no `tailwind.config.ts`, uses `@theme inline {}` blocks in `globals.css`
+- `middleware.ts` → `proxy.ts` (Next.js 16 rename; function named `proxy`)
+- Bricolage Grotesque + Epilogue fonts (replacing Inter) per `.impeccable.md` design direction
+- Google Fonts `@import` must precede `@import "tailwindcss"` in CSS
 
 ---
 
-## Phase 2 — Database Schema and Authentication
+## Phase 2 — Database Schema and Authentication ✅ COMPLETE
 
 **Goal:** All Supabase tables created with correct schemas and RLS policies; auth pages fully functional.
 
@@ -209,11 +216,18 @@ Create all tables from `backend-spec.md` sections 2.2–2.12. Each table in a nu
 - `components/ui/Label.tsx`
 - `components/ui/FormError.tsx`
 
-**Phase 2 deliverable:** User can sign up, confirm email, log in, log out, and reset password. Supabase tables and RLS live.
+**Phase 2 deliverable:** User can sign up, confirm email, log in, log out, and reset password. Supabase tables and RLS live. ✅
+
+**Actual deviations from plan:**
+- Migrations applied manually via Supabase dashboard (CLI not available)
+- `012_share_token_access.sql` + `013_profile_trigger.sql` (not `012_rls_policies.sql`) — RLS is inline per table, not a separate file
+- `trips` table uses `description` (not `destination`) and has no `travellers` column — travellers derived from `trip_members`
+- `documents` table uses `file_name` (not `filename`), `uploaded_at` (not `created_at`), parse_status enum: `unparsed/parsing/parsed/failed`
+- `useSearchParams()` in login page wrapped in `<Suspense>` boundary (Next.js 16 requirement)
 
 ---
 
-## Phase 3 — Core API Endpoints
+## Phase 3 — Core API Endpoints ✅ COMPLETE
 
 **Goal:** All server-side API routes built, role-guarded, and returning correct responses. No frontend wiring yet.
 
@@ -289,11 +303,19 @@ Create all tables from `backend-spec.md` sections 2.2–2.12. Each table in a nu
 **Files created:**
 - `app/api/share/[shareToken]/route.ts` — GET; validates token against `trips.share_token`; returns `{ tripId }` or 404 (no distinction between wrong token and deleted trip)
 
-**Phase 3 deliverable:** All API routes callable and role-guarded; parsing pipeline functional server-side.
+**Phase 3 deliverable:** All API routes callable and role-guarded; parsing pipeline functional server-side. ✅
+
+**Actual deviations from plan:**
+- `callClaude.ts` is a shared server-side function (avoids circular HTTP self-calls); both services and the `/api/claude` proxy use it directly
+- `getAuthUser()` returns `{ supabase, user }` — all routes destructure both
+- `Database` types require `Relationships: []` on each table for Supabase JS v2 type inference
+- `pdf-parse` uses `require()` (CJS) not dynamic `import().default` — ESM build lacks `.default`
+- `itinerary_events` has `source_entity_id` (not `related_flight_id`/`related_accommodation_id`)
+- `/api/claude` proxy route present but services call `callClaude` directly (no circular HTTP)
 
 ---
 
-## Phase 4 — Frontend Shell
+## Phase 4 — Frontend Shell ✅ COMPLETE
 
 **Goal:** App layout, sidebar, navigation, and routing skeleton working end-to-end with real auth.
 
@@ -345,11 +367,17 @@ Create all tables from `backend-spec.md` sections 2.2–2.12. Each table in a nu
 - `components/ui/Skeleton.tsx` — shimmer skeleton block; configurable width/height; used as loading placeholder across all pages
 - `components/ui/Spinner.tsx` — small inline spinner for button loading states
 
-**Phase 4 deliverable:** App shell renders with live sidebar; trip list loads; navigation routes correctly; auth guard active.
+**Phase 4 deliverable:** App shell renders with live sidebar; trip list loads; navigation routes correctly; auth guard active. ✅
+
+**Actual deviations from plan:**
+- `currentTripId` derived client-side in Sidebar via `usePathname()` regex match — no server-side header needed
+- `userId` passed from layout to Sidebar; role derived from `trip.organiser_id === userId` (avoids extra membership query in layout)
+- CSS animation keyframes (`shimmer`, `modal-in`, `toast-in`, `slide-in-right`, `progress-indeterminate`) added to `globals.css`
+- `lib/utils/toast.ts` uses a pub-sub store (no external lib)
 
 ---
 
-## Phase 5 — Feature Pages
+## Phase 5 — Feature Pages ✅ COMPLETE
 
 **Goal:** All screens from `app-flow.md` section 5 built, data-connected, and role-aware.
 
@@ -471,7 +499,15 @@ Create all tables from `backend-spec.md` sections 2.2–2.12. Each table in a nu
 - Reuses read-only variants of `ItineraryPage`, `FlightsTable`, `AccommodationTable` (member-mode rendering)
 - Chatbot available in ANSWER-only mode (role forced to "member" server-side regardless of any session)
 
-**Phase 5 deliverable:** All screens functional; organiser and member flows working end-to-end.
+**Phase 5 deliverable:** All screens functional; organiser and member flows working end-to-end. ✅
+
+**Actual deviations from plan:**
+- `FlightsTable` and `AccommodationTable` are standalone client components (no separate `FlightsPage.tsx` wrapper needed — pattern simplified)
+- `EditableCell` in `components/flights/EditableCell.tsx` reused by `AccommodationTable` (shared across both features)
+- Settings page uses `TripForm mode="edit"` directly (no separate `TripDetailsForm.tsx`)
+- Shared trip view (`/share/[tripId]`) validates token inline via Supabase query (no separate API call)
+- `MemberManagement` is a server-compatible display component (no remove-member action in V1, as per spec)
+- Chat page height is `h-full` with overflow-hidden to enable fixed-bottom input; parent layout sets `overflow-y-auto`
 
 ---
 
@@ -658,4 +694,4 @@ UPDATE trips SET deleted_at = now() WHERE id = $1 AND organiser_id = auth.uid()
 
 ---
 
-*plan.md — Golazo V1 | Generated: 2026-05-06 | Decisions resolved: 2026-05-06 | Ready for approval*
+*plan.md — Golazo V1 | Generated: 2026-05-06 | Decisions resolved: 2026-05-06 | Last updated: 2026-05-07 | Phase 4+5 completed: 2026-05-07*
