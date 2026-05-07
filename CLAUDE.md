@@ -174,3 +174,45 @@ golazo/
 ---
 
 *Last updated: 2026-05-06 | CEREBRO Build OS — Phase 2 output*
+
+---
+
+## Design Context
+
+### Users
+
+**Primary — The Organiser (35–45, non-technical).** Planning a multi-city group trip. In task-completion mode — laptop, desk, slightly burdened by coordination overhead. They open Golazo because they want the situation handled. Needs clarity fast, not entertainment.
+
+**Secondary — Group Members.** Casually checking flight times, check-in dates, the daily schedule. No editing. Mobile and desktop both plausible.
+
+**Emotional goal:** Calm confidence. The interface should make the organiser feel like a brilliant PA has already done the work.
+
+### Brand Personality
+
+**Three words: warm, considered, unhurried.**
+
+- **Warm** — human and personable; country flags, destination photos, avatar stacks. Group trips are about people, not spreadsheet rows.
+- **Considered** — nothing superfluous. Every element earns its place. The AI works quietly in the background.
+- **Unhurried** — feels like quality stationery, not a project management dashboard.
+
+### Aesthetic Direction
+
+**Theme:** Light. Warm off-white surfaces (`#F9F7F4`). Orange accent (`#F26419`) used sparingly — signals action only. Dark sidebar (`#1A1714`).
+
+**Typography:**
+- Display / headings: **Bricolage Grotesque** (Google Fonts, variable weight) — humanist grotesque with optical warmth; replaces Inter for headings
+- Body / UI text: **Epilogue** (Google Fonts) — subtle personality, excellent small-size legibility
+
+**Reference:** `assets/app inspo.webp` (app.designyow.com) — card-based layout, left sidebar, orange primary, country flags, avatar stacks.
+
+**Anti-references:** No Airbnb/TripAdvisor energy; no dark mode glows or glassmorphism; no corporate SaaS coldness.
+
+### Design Principles
+
+1. **Reassurance through clarity** — every screen reduces anxiety; right information at the right time
+2. **Warm, not cute** — human touches without being bubbly; the organiser is managing real logistics
+3. **Intelligent restraint** — orange is rare so it always signals action; tables are tables; cards are cards
+4. **Organisational authority** — organiser's data at the centre; AI works for them, quietly
+5. **Speed over delight** — micro-interactions confirm state, they don't entertain
+
+*Full context in `.impeccable.md`*
