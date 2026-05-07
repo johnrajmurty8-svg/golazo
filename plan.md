@@ -1,7 +1,7 @@
 # Golazo — Master Build Plan
 
 > **Status:** Phase 5 complete — Phase 6 (Polish) next
-> **Last commit:** `7e6df8c` — 2026-05-07
+> **Last commit:** `6e957f2` — 2026-05-07
 > **V1 Launch Target:** 15 May 2026
 > **Model:** claude-sonnet-4-20250514 | Stack: Next.js 16 + Tailwind v4 + Supabase + Claude API + Vercel
 
@@ -405,10 +405,9 @@ Create all tables from `backend-spec.md` sections 2.2–2.12. Each table in a nu
 
 **Files created:**
 - `app/(app)/trips/[tripId]/vault/page.tsx` — server component; fetches document list; renders vault
-- `components/vault/VaultPage.tsx` — client component wrapper (needs upload interactivity)
+- `components/vault/VaultPage.tsx` — client component wrapper; owns docs state; renders upload zone + document list inline (no separate `DocumentList.tsx`)
 - `components/vault/UploadZone.tsx` — drag-and-drop zone + file picker; validates file type (PDF/text) + size (≤10MB) client-side before sending; shows drag-over state; calls upload API
-- `components/vault/DocumentList.tsx` — list of `DocumentRow` components; empty state
-- `components/vault/DocumentRow.tsx` — file name, size (formatted), upload date, `ParseStatusBadge`; delete icon (with confirm modal); replace icon
+- `components/vault/DocumentRow.tsx` — file name, size (formatted), upload date, `ParseStatusBadge`; delete icon (with confirm modal)
 - `components/vault/ParseStatusBadge.tsx` — colour-coded pill: Unparsed (neutral), Parsing (animated), Parsed (green), Failed (red)
 - `components/vault/ParseAllButton.tsx` — primary button; disabled when no unparsed docs; triggers parse pipeline; shows loading overlay
 
@@ -428,12 +427,10 @@ Create all tables from `backend-spec.md` sections 2.2–2.12. Each table in a nu
 **Screens covered:** `app-flow.md` §5.4
 
 **Files created:**
-- `app/(app)/trips/[tripId]/itinerary/page.tsx` — server component; fetches itinerary days + events
-- `components/itinerary/ItineraryPage.tsx` — client wrapper; renders day list; handles add/edit/delete mutations
-- `components/itinerary/DaySection.tsx` — day header (formatted date + optional label); event list; "+ Add event" prompt (organiser only)
-- `components/itinerary/EventCard.tsx` — time, title, location, description; `ConfidenceFlag` if `confidence_score < 0.7`; edit + delete icons (organiser only); hover state
-- `components/itinerary/EventForm.tsx` — inline expanding form: time picker, title, location, description; Save / Cancel; used for both add and edit
-- `components/itinerary/EmptyDayState.tsx` — "+ Add event" prompt shown on empty days (organiser only); "No events" text (member)
+- `app/(app)/trips/[tripId]/itinerary/page.tsx` — server component; fetches days + events; groups events by `day_id`; passes to `DaySection` (no separate client wrapper needed)
+- `components/itinerary/DaySection.tsx` — client component; owns per-day event state; day header (date + weekday); timeline dot + vertical line; renders `EventCard` list; inline `EventForm` for add/edit; empty day prompt
+- `components/itinerary/EventCard.tsx` — time, title, location, description; `ConfidenceFlag` if `confidence_score < 0.7`; edit + delete icons (organiser only, hidden for members); hover state
+- `components/itinerary/EventForm.tsx` — inline expanding form: time picker, event type select, title, location, notes; Save / Cancel; used for both add and edit
 
 **Role handling:** edit controls hidden entirely for members (not just disabled)
 
@@ -442,62 +439,51 @@ Create all tables from `backend-spec.md` sections 2.2–2.12. Each table in a nu
 **Screens covered:** `app-flow.md` §5.5
 
 **Files created:**
-- `app/(app)/trips/[tripId]/flights/page.tsx` — server component; fetches flights
-- `components/flights/FlightsPage.tsx` — client wrapper; handles inline edit mutations
-- `components/flights/FlightsTable.tsx` — responsive data table; columns: Airline, From, To, Dep. Date, Dep. Time, Arr. Time, Flight No., Confirmation No., Travellers; row actions (delete, organiser only)
-- `components/flights/FlightCell.tsx` — displays value or `ConfidenceFlag`; on click (organiser only) becomes `EditableCell`
-- `components/flights/EditableCell.tsx` — text input inline; auto-saves on blur or Enter; Tab moves to next cell; sets `is_locked = true` on save
-- `components/flights/AddFlightRow.tsx` — "+ Add Flight" button appends empty row in edit mode
+- `app/(app)/trips/[tripId]/flights/page.tsx` — server component; fetches flights; passes to `FlightsTable`
+- `components/flights/FlightsTable.tsx` — standalone client component; responsive data table; columns: Airline, From, To, Dep. Date, Dep. Time, Arr. Time, Flight No., Confirmation; row delete (organiser); inline "+ Add flight" footer row
+- `components/flights/EditableCell.tsx` — shared editable cell; click-to-edit input; auto-saves on blur/Enter; Escape to cancel; used by both flights and accommodation tables
 
 ### 5.6 Accommodation Table (`/trips/[tripId]/accommodation`)
 
 **Screens covered:** `app-flow.md` §5.6
 
 **Files created:**
-- `app/(app)/trips/[tripId]/accommodation/page.tsx`
-- `components/accommodation/AccommodationPage.tsx`
-- `components/accommodation/AccommodationTable.tsx` — columns: Property Name, Location, Check-In, Check-Out, Nights (computed), Confirmation No., Travellers
-- `components/accommodation/AccommodationCell.tsx` — same `EditableCell` pattern as flights
-- `components/accommodation/AddAccommodationRow.tsx`
+- `app/(app)/trips/[tripId]/accommodation/page.tsx` — server component; fetches accommodation; passes to `AccommodationTable`
+- `components/accommodation/AccommodationTable.tsx` — standalone client component; columns: Property, Location, Check-In, Check-Out, Nights (computed), Confirmation; reuses `EditableCell` from flights; row delete + inline add (organiser only)
 
 ### 5.7 AI Chat (`/trips/[tripId]/chat`)
 
 **Screens covered:** `app-flow.md` §5.7
 
 **Files created:**
-- `app/(app)/trips/[tripId]/chat/page.tsx` — server component; fetches chat history; determines user role
-- `components/chat/ChatPage.tsx` — client component; full chat UI
-- `components/chat/ChatMessage.tsx` — user vs assistant bubbles; timestamps; role badge on assistant messages
-- `components/chat/ChatInput.tsx` — text area; Send button; Enter to send (Shift+Enter for newline); disabled when rate limit hit; max 2000 chars enforced
-- `components/chat/RateLimitBanner.tsx` — shown when 100 messages/day limit hit: "You've reached the daily chat limit. Resets at midnight UTC."
+- `app/(app)/trips/[tripId]/chat/page.tsx` — server component; fetches last 50 messages; checks daily rate limit count; passes role to `ChatPage`
+- `components/chat/ChatPage.tsx` — client component; owns message state; optimistic user message → POST → replace with server response; scrolls to bottom on new message
+- `components/chat/ChatMessage.tsx` — user vs assistant bubbles (orange / white); timestamps; role badge inline
+- `components/chat/ChatInput.tsx` — auto-resizing textarea; Enter to send, Shift+Enter for newline; char counter at 90%; disabled when rate-limited
+- `components/chat/RateLimitBanner.tsx` — shown when 100 messages/day limit hit
 - `components/chat/TypingIndicator.tsx` — three-dot animated indicator while awaiting Claude response
-- `components/chat/RoleBadge.tsx` — "Organiser" or "Group Member" badge shown in chat header
 
-**UPDATE mode flow (organiser only):**
-- Bot proposes change in natural language → organiser confirms via button → server applies JSON update block → success toast
+**UPDATE mode:** server handles the JSON update block; client displays the natural-language confirmation from Claude's response
 
 ### 5.8 Trip Settings (`/trips/[tripId]/settings`)
 
 **Screens covered:** `app-flow.md` §5.8
 
 **Files created:**
-- `app/(app)/trips/[tripId]/settings/page.tsx` — server component; validates organiser role (redirect non-organisers to dashboard); renders settings
-- `components/trip/SettingsPage.tsx` — client wrapper
-- `components/trip/TripDetailsForm.tsx` — editable trip name + start/end dates; Save button; PATCH to `/api/trips/[tripId]`
-- `components/trip/MemberManagement.tsx` — list of current members with role badges; "Copy Shared Link" button (copies `/share/[tripId]?token=[share_token]` to clipboard + toast); no email invite in V1 (deferred to V2); remove member button (placeholder for V2)
-- `components/trip/ShareLinkSection.tsx` — displays share link; copy button; "Regenerate link" button (invalidates old token)
-- `components/trip/DangerZone.tsx` — "Delete Trip" button; confirm modal ("Are you sure? This cannot be undone."); DELETE to `/api/trips/[tripId]`; on success redirect to `/trips`
+- `app/(app)/trips/[tripId]/settings/page.tsx` — server component; redirects non-organisers to dashboard; fetches trip + members; renders 4 sections
+- `components/trip/MemberManagement.tsx` — display-only member list with role badges (no remove in V1); shows organiser badge in orange
+- `components/trip/ShareLinkSection.tsx` — displays full share URL; copy-to-clipboard button; regenerate token button (POST to `/api/trips/[tripId]/share`)
+- `components/trip/DangerZone.tsx` — red-bordered danger section; "Delete trip" → confirm modal → DELETE to `/api/trips/[tripId]` → redirect to `/trips`
+- Reuses `TripForm mode="edit"` for trip name/date editing (no separate `TripDetailsForm.tsx` needed)
 
 ### 5.9 Shared Trip View (`/share/[tripId]`)
 
 **Screens covered:** `app-flow.md` §5.9
 
 **Files created:**
-- `app/share/[tripId]/page.tsx` — server component; validates `share_token` query param via `/api/share/[shareToken]`; 404 if invalid; fetches trip data in read-only mode; renders shared view
-- `components/trip/SharedTripHeader.tsx` — simplified top bar: Golazo logo, trip name, "Sign up to plan your own trip" CTA; no sidebar
-- `components/trip/SharedDashboard.tsx` — read-only dashboard: trip stats, itinerary preview, flights, accommodation; no alerts, no vault, no settings
-- Reuses read-only variants of `ItineraryPage`, `FlightsTable`, `AccommodationTable` (member-mode rendering)
-- Chatbot available in ANSWER-only mode (role forced to "member" server-side regardless of any session)
+- `app/share/[tripId]/page.tsx` — server component; validates `share_token` query param directly via Supabase (no API round-trip); 404 if invalid or deleted; fetches trip, flights, accommodation, itinerary days + events; renders full read-only view inline
+- `components/trip/SharedTripHeader.tsx` — sticky top bar: Golazo logo + trip name + "Plan your own trip →" CTA linking to `/signup`; no sidebar
+- All data rendered inline in the page component (no separate `SharedDashboard.tsx`); shows hero, flights list, accommodation list, day-by-day itinerary
 
 **Phase 5 deliverable:** All screens functional; organiser and member flows working end-to-end. ✅
 
@@ -694,4 +680,4 @@ UPDATE trips SET deleted_at = now() WHERE id = $1 AND organiser_id = auth.uid()
 
 ---
 
-*plan.md — Golazo V1 | Generated: 2026-05-06 | Decisions resolved: 2026-05-06 | Last updated: 2026-05-07 | Phase 4+5 completed: 2026-05-07*
+*plan.md — Golazo V1 | Generated: 2026-05-06 | Decisions resolved: 2026-05-06 | Phase 4+5 completed: 2026-05-07 | Last updated: 2026-05-07 | Commit: `6e957f2`*
