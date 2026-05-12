@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import {
@@ -15,6 +16,7 @@ import {
 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { SidebarNavItem } from "./SidebarNavItem";
+import { SearchBar } from "./SearchBar";
 import { TripListItem } from "@/components/trip/TripListItem";
 import { Avatar } from "./Avatar";
 import type { Trip } from "@/types/database";
@@ -44,6 +46,13 @@ export function Sidebar({ trips, userId, userName, userAvatarUrl, hideLogo }: Si
   }
 
   const tripBase = currentTripId ? `/trips/${currentTripId}` : null;
+  const [searchQuery, setSearchQuery] = useState("");
+
+  function submitSearch() {
+    const q = searchQuery.trim();
+    if (!q || !tripBase) return;
+    router.push(`${tripBase}/itinerary?q=${encodeURIComponent(q)}`);
+  }
 
   return (
     <nav
@@ -87,7 +96,7 @@ export function Sidebar({ trips, userId, userName, userAvatarUrl, hideLogo }: Si
                 No trips yet
               </p>
             ) : (
-              trips.map((trip) => <TripListItem key={trip.id} trip={trip} />)
+              trips.map((trip) => <TripListItem key={trip.id} trip={trip} userId={userId} />)
             )}
           </div>
 
@@ -105,6 +114,16 @@ export function Sidebar({ trips, userId, userName, userAvatarUrl, hideLogo }: Si
         {/* Per-trip nav */}
         {tripBase && (
           <section>
+            <div className="px-3 mb-3">
+              <SearchBar
+                value={searchQuery}
+                onChange={setSearchQuery}
+                onSubmit={submitSearch}
+                placeholder="Search trip…"
+                variant="sidebar"
+                ariaLabel="Search this trip"
+              />
+            </div>
             <p className="px-5 mb-2 text-[10px] font-[var(--font-weight-semibold)] text-[#6B6560] uppercase tracking-widest">
               This Trip
             </p>

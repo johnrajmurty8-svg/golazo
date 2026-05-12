@@ -1,11 +1,18 @@
 "use client";
 
 import { useState } from "react";
-import { Pencil, Trash2, Clock, MapPin, Plane, Building2, Coffee } from "lucide-react";
+import { Pencil, Trash2, Clock, Plane, Building2, Coffee, Link as LinkIcon, GripVertical } from "lucide-react";
+import { useSortable } from "@dnd-kit/sortable";
+import { CSS } from "@dnd-kit/utilities";
 import { ConfidenceFlag } from "@/components/ui/ConfidenceFlag";
 import { Modal } from "@/components/ui/Modal";
 import { Button } from "@/components/ui/Button";
+import { Checkbox } from "@/components/ui/Checkbox";
+import { SourceDocumentLink } from "@/components/vault/SourceDocumentLink";
 import { toast } from "@/lib/utils/toast";
+import { EVENT_COLORS } from "./eventColors";
+import { EventTagPills } from "./EventTagPills";
+import { EventAttachments } from "./EventAttachments";
 import type { ItineraryEvent } from "@/types/database";
 
 interface EventCardProps {
@@ -14,6 +21,11 @@ interface EventCardProps {
   onEdit: (event: ItineraryEvent) => void;
   onDeleted: (id: string) => void;
   tripId: string;
+  source: { docId: string; fileName: string } | null;
+  /** When false, the card renders without drag affordances (e.g. for members or when DnD is disabled). */
+  draggable?: boolean;
+  selected?: boolean;
+  onToggleSelected?: (id: string, next: boolean) => void;
 }
 
 const TYPE_ICONS: Record<ItineraryEvent["event_type"], React.ReactNode> = {
@@ -24,9 +36,36 @@ const TYPE_ICONS: Record<ItineraryEvent["event_type"], React.ReactNode> = {
   general: <Clock size={13} strokeWidth={1.5} />,
 };
 
-export function EventCard({ event, isOrganiser, onEdit, onDeleted, tripId }: EventCardProps) {
+export function EventCard({
+  event,
+  isOrganiser,
+  onEdit,
+  onDeleted,
+  tripId,
+  source,
+  draggable = true,
+  selected = false,
+  onToggleSelected,
+}: EventCardProps) {
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [deleting, setDeleting] = useState(false);
+  const colour = EVENT_COLORS[event.event_type];
+
+  const dndEnabled = isOrganiser && draggable;
+  const sortable = useSortable({ id: event.id, disabled: !dndEnabled });
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = sortable;
+
+  const style: React.CSSProperties = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    borderLeft: `4px solid ${colour.border}`,
+    backgroundColor: isDragging
+      ? "var(--color-surface)"
+      : selected
+        ? "var(--color-primary-light)"
+        : colour.tint,
+    opacity: isDragging ? 0.6 : 1,
+  };
 
   async function handleDelete() {
     setDeleting(true);
@@ -43,9 +82,45 @@ export function EventCard({ event, isOrganiser, onEdit, onDeleted, tripId }: Eve
 
   return (
     <>
-      <div className="flex items-start gap-3 p-4 rounded-[var(--radius-md)] bg-[var(--color-surface)] border border-[var(--color-border)] hover:shadow-[var(--shadow-sm)] transition-all duration-120 group">
+      <div
+        ref={setNodeRef}
+        style={style}
+        className="relative flex items-start gap-3 p-4 pl-3 rounded-[var(--radius-md)] border border-[var(--color-border)] hover:shadow-[var(--shadow-sm)] transition-shadow duration-120 group"
+      >
+        {/* Drag handle (organiser hover only) */}
+        {dndEnabled && (
+          <button
+            type="button"
+            {...attributes}
+            {...listeners}
+            className="absolute -left-5 top-1/2 -translate-y-1/2 p-1 text-[var(--color-text-muted)] hover:text-[var(--color-text-primary)] opacity-0 group-hover:opacity-100 transition-opacity cursor-grab active:cursor-grabbing"
+            aria-label="Reorder event"
+          >
+            <GripVertical size={14} strokeWidth={1.5} />
+          </button>
+        )}
+
+        {/* Bulk-select checkbox (organiser only) */}
+        {isOrganiser && onToggleSelected && (
+          <div
+            className={
+              "mt-1.5 transition-opacity " +
+              (selected ? "opacity-100" : "opacity-0 group-hover:opacity-100 focus-within:opacity-100")
+            }
+          >
+            <Checkbox
+              checked={selected}
+              onChange={(next) => onToggleSelected(event.id, next)}
+              ariaLabel={`Select event ${event.title}`}
+            />
+          </div>
+        )}
+
         {/* Type icon */}
-        <div className="w-7 h-7 rounded-full bg-[var(--color-surface-secondary)] flex items-center justify-center shrink-0 mt-0.5 text-[var(--color-text-muted)]">
+        <div
+          className="w-7 h-7 rounded-full flex items-center justify-center shrink-0 mt-0.5"
+          style={{ backgroundColor: colour.badgeBg, color: colour.border }}
+        >
           {TYPE_ICONS[event.event_type]}
         </div>
 
@@ -64,18 +139,43 @@ export function EventCard({ event, isOrganiser, onEdit, onDeleted, tripId }: Eve
             </p>
           </div>
 
-          {event.location && (
-            <p className="flex items-center gap-1 text-[var(--font-size-xs)] text-[var(--color-text-secondary)] mt-1">
-              <MapPin size={11} strokeWidth={1.5} />
-              {event.location}
-            </p>
-          )}
+          <EventTagPills
+            eventType={event.event_type}
+            location={event.location}
+            travellers={event.travellers}
+            tags={event.tags}
+          />
 
           {event.description && (
-            <p className="text-[var(--font-size-xs)] text-[var(--color-text-secondary)] mt-1 line-clamp-2">
+            <p className="text-[var(--font-size-xs)] text-[var(--color-text-secondary)] mt-1.5 line-clamp-2">
               {event.description}
             </p>
           )}
+
+          {(event.booking_url || source) && (
+            <div className="flex items-center gap-3 mt-1.5 flex-wrap">
+              {event.booking_url && (
+                <a
+                  href={event.booking_url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-1 text-[var(--font-size-xs)] text-[var(--color-text-muted)] hover:text-[var(--color-primary)] transition-colors"
+                >
+                  <LinkIcon size={11} strokeWidth={1.5} />
+                  Booking
+                </a>
+              )}
+              {source && (
+                <SourceDocumentLink
+                  tripId={tripId}
+                  docId={source.docId}
+                  fileName={source.fileName}
+                />
+              )}
+            </div>
+          )}
+
+          <EventAttachments tripId={tripId} eventId={event.id} isOrganiser={isOrganiser} />
         </div>
 
         {/* Actions (organiser only, show on hover) */}

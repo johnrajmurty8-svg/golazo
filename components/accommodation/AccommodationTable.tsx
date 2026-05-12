@@ -1,11 +1,15 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { Trash2, Plus } from "lucide-react";
 import { EditableCell } from "@/components/flights/EditableCell";
 import { ConfidenceFlag } from "@/components/ui/ConfidenceFlag";
 import { Modal } from "@/components/ui/Modal";
 import { Button } from "@/components/ui/Button";
+import { SearchBar } from "@/components/ui/SearchBar";
+import { BulkActionBar } from "@/components/ui/BulkActionBar";
+import { Checkbox } from "@/components/ui/Checkbox";
+import { SourceDocumentLink } from "@/components/vault/SourceDocumentLink";
 import { toast } from "@/lib/utils/toast";
 import type { ParsedAccommodation } from "@/types/database";
 
@@ -13,6 +17,7 @@ interface AccommodationTableProps {
   tripId: string;
   initialAccommodation: ParsedAccommodation[];
   isOrganiser: boolean;
+  docNameById: Record<string, string>;
 }
 
 function nightsBetween(checkIn: string | null, checkOut: string | null): string {
@@ -23,10 +28,31 @@ function nightsBetween(checkIn: string | null, checkOut: string | null): string 
   return nights > 0 ? String(nights) : "—";
 }
 
-export function AccommodationTable({ tripId, initialAccommodation, isOrganiser }: AccommodationTableProps) {
+export function AccommodationTable({ tripId, initialAccommodation, isOrganiser, docNameById }: AccommodationTableProps) {
   const [records, setRecords] = useState(initialAccommodation);
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [addingRow, setAddingRow] = useState(false);
+  const [query, setQuery] = useState("");
+  const [selected, setSelected] = useState<Set<string>>(new Set());
+  const [confirmBulkOpen, setConfirmBulkOpen] = useState(false);
+  const [bulkDeleting, setBulkDeleting] = useState(false);
+
+  const filteredRecords = useMemo(() => {
+    if (!query) return records;
+    const needle = query.toLowerCase();
+    return records.filter((r) => {
+      const hay = [
+        r.property_name,
+        r.location,
+        r.confirmation_number,
+        ...(r.travellers ?? []),
+      ]
+        .filter((v): v is string => typeof v === "string")
+        .join(" ")
+        .toLowerCase();
+      return hay.includes(needle);
+    });
+  }, [records, query]);
 
   async function patchRecord(id: string, field: string, value: string) {
     const res = await fetch(`/api/trips/${tripId}/accommodation/${id}`, {
@@ -48,8 +74,67 @@ export function AccommodationTable({ tripId, initialAccommodation, isOrganiser }
     if (res.ok) {
       toast.success("Accommodation deleted.");
       setRecords((prev) => prev.filter((r) => r.id !== id));
+      setSelected((prev) => {
+        if (!prev.has(id)) return prev;
+        const next = new Set(prev);
+        next.delete(id);
+        return next;
+      });
     } else {
       toast.error("Could not delete. Please try again.");
+    }
+  }
+
+  function toggleSelected(id: string, next: boolean) {
+    setSelected((prev) => {
+      const out = new Set(prev);
+      if (next) out.add(id);
+      else out.delete(id);
+      return out;
+    });
+  }
+
+  function toggleSelectAll(next: boolean) {
+    if (!next) {
+      setSelected(new Set());
+      return;
+    }
+    setSelected(new Set(filteredRecords.map((r) => r.id)));
+  }
+
+  async function handleBulkDelete() {
+    const ids = Array.from(selected);
+    if (ids.length === 0) return;
+    setBulkDeleting(true);
+
+    const results = await Promise.allSettled(
+      ids.map((id) =>
+        fetch(`/api/trips/${tripId}/accommodation/${id}`, { method: "DELETE" }).then((res) => {
+          if (!res.ok) throw new Error(`Failed: ${id}`);
+          return id;
+        })
+      )
+    );
+
+    const succeeded = results
+      .filter((r): r is PromiseFulfilledResult<string> => r.status === "fulfilled")
+      .map((r) => r.value);
+    const failedCount = results.length - succeeded.length;
+
+    if (succeeded.length > 0) {
+      setRecords((prev) => prev.filter((r) => !succeeded.includes(r.id)));
+    }
+    setSelected(new Set());
+    setBulkDeleting(false);
+    setConfirmBulkOpen(false);
+
+    if (failedCount === 0) {
+      toast.success(`Deleted ${succeeded.length} record${succeeded.length === 1 ? "" : "s"}.`);
+    } else if (succeeded.length === 0) {
+      toast.error("Could not delete accommodation. Please try again.");
+    } else {
+      toast.warning(`Deleted ${succeeded.length}; ${failedCount} failed. Reloading…`);
+      window.location.reload();
     }
   }
 
@@ -77,12 +162,50 @@ export function AccommodationTable({ tripId, initialAccommodation, isOrganiser }
     { key: "confirmation_number", label: "Confirmation" },
   ];
 
+  const allFilteredSelected =
+    filteredRecords.length > 0 && filteredRecords.every((r) => selected.has(r.id));
+  const someFilteredSelected =
+    filteredRecords.some((r) => selected.has(r.id)) && !allFilteredSelected;
+  const colSpanExtra = 2 + (isOrganiser ? 2 : 0); // nights + source + (select + delete when organiser)
+
   return (
     <>
+      {records.length > 0 && (
+        <div className="mb-3">
+          <SearchBar
+            value={query}
+            onChange={setQuery}
+            placeholder="Search by property or location…"
+            ariaLabel="Search accommodation"
+          />
+        </div>
+      )}
+
+      {isOrganiser && (
+        <BulkActionBar
+          count={selected.size}
+          itemNoun="accommodation"
+          onDelete={() => setConfirmBulkOpen(true)}
+          onClear={() => setSelected(new Set())}
+          deleting={bulkDeleting}
+          label={`${selected.size} selected`}
+        />
+      )}
+
       <div className="rounded-[var(--radius-lg)] border border-[var(--color-border)] bg-[var(--color-surface)] shadow-[var(--shadow-sm)] overflow-x-auto">
         <table className="w-full min-w-[700px] border-collapse">
           <thead>
             <tr className="bg-[var(--color-surface-secondary)] border-b border-[var(--color-border)]">
+              {isOrganiser && (
+                <th className="px-3 py-3 w-10 text-left">
+                  <Checkbox
+                    checked={allFilteredSelected}
+                    indeterminate={someFilteredSelected}
+                    onChange={toggleSelectAll}
+                    ariaLabel="Select all accommodation"
+                  />
+                </th>
+              )}
               {columns.map((col) => (
                 <th
                   key={col.key}
@@ -94,6 +217,9 @@ export function AccommodationTable({ tripId, initialAccommodation, isOrganiser }
               <th className="px-4 py-3 text-left text-[var(--font-size-xs)] font-[var(--font-weight-semibold)] text-[var(--color-text-secondary)] uppercase tracking-wide whitespace-nowrap">
                 Nights
               </th>
+              <th className="px-2 py-3 text-center text-[var(--font-size-xs)] font-[var(--font-weight-semibold)] text-[var(--color-text-secondary)] uppercase tracking-wide whitespace-nowrap w-14">
+                Source
+              </th>
               {isOrganiser && <th className="px-4 py-3 w-10" />}
             </tr>
           </thead>
@@ -101,20 +227,43 @@ export function AccommodationTable({ tripId, initialAccommodation, isOrganiser }
             {records.length === 0 && (
               <tr>
                 <td
-                  colSpan={columns.length + 2}
+                  colSpan={columns.length + colSpanExtra}
                   className="px-4 py-10 text-center text-[var(--font-size-sm)] text-[var(--color-text-muted)] italic"
                 >
                   No accommodation yet. {isOrganiser ? "Parse documents or add one manually." : ""}
                 </td>
               </tr>
             )}
-            {records.map((rec, i) => (
+            {records.length > 0 && filteredRecords.length === 0 && (
+              <tr>
+                <td
+                  colSpan={columns.length + colSpanExtra}
+                  className="px-4 py-10 text-center text-[var(--font-size-sm)] text-[var(--color-text-muted)] italic"
+                >
+                  No accommodation matches “{query}”.
+                </td>
+              </tr>
+            )}
+            {filteredRecords.map((rec, i) => {
+              const isSelected = selected.has(rec.id);
+              return (
               <tr
                 key={rec.id}
                 className={`border-b border-[var(--color-border)] last:border-b-0 ${
-                  i % 2 === 0 ? "bg-white" : "bg-[var(--color-bg)]"
+                  isSelected
+                    ? "bg-[var(--color-primary-light)]"
+                    : i % 2 === 0 ? "bg-white" : "bg-[var(--color-bg)]"
                 } hover:bg-[var(--color-surface-secondary)] transition-colors group`}
               >
+                {isOrganiser && (
+                  <td className="px-3 py-2 align-middle">
+                    <Checkbox
+                      checked={isSelected}
+                      onChange={(next) => toggleSelected(rec.id, next)}
+                      ariaLabel={`Select ${rec.property_name ?? "accommodation"}`}
+                    />
+                  </td>
+                )}
                 {columns.map((col) => {
                   const raw = rec[col.key as keyof ParsedAccommodation];
                   const val = raw !== null && raw !== undefined ? String(raw) : null;
@@ -140,6 +289,16 @@ export function AccommodationTable({ tripId, initialAccommodation, isOrganiser }
                 <td className="px-4 py-2 align-middle text-[var(--font-size-sm)] text-[var(--color-text-secondary)]">
                   {nightsBetween(rec.check_in_date, rec.check_out_date)}
                 </td>
+                <td className="px-2 py-2 align-middle text-center">
+                  {rec.source_document_id && docNameById[rec.source_document_id] ? (
+                    <SourceDocumentLink
+                      tripId={tripId}
+                      docId={rec.source_document_id}
+                      fileName={docNameById[rec.source_document_id]}
+                      compact
+                    />
+                  ) : null}
+                </td>
                 {isOrganiser && (
                   <td className="px-2 py-2 align-middle">
                     <button
@@ -153,7 +312,8 @@ export function AccommodationTable({ tripId, initialAccommodation, isOrganiser }
                   </td>
                 )}
               </tr>
-            ))}
+            );
+            })}
           </tbody>
         </table>
 
@@ -187,6 +347,24 @@ export function AccommodationTable({ tripId, initialAccommodation, isOrganiser }
           </div>
         </Modal>
       )}
+
+      <Modal
+        open={confirmBulkOpen}
+        onClose={() => !bulkDeleting && setConfirmBulkOpen(false)}
+        title={`Delete ${selected.size} record${selected.size === 1 ? "" : "s"}?`}
+      >
+        <p className="text-[var(--font-size-sm)] text-[var(--color-text-secondary)] mb-6">
+          This action cannot be undone.
+        </p>
+        <div className="flex gap-3">
+          <Button variant="danger" size="md" loading={bulkDeleting} onClick={handleBulkDelete} className="flex-1">
+            Delete {selected.size}
+          </Button>
+          <Button variant="secondary" size="md" onClick={() => setConfirmBulkOpen(false)} disabled={bulkDeleting}>
+            Cancel
+          </Button>
+        </div>
+      </Modal>
     </>
   );
 }

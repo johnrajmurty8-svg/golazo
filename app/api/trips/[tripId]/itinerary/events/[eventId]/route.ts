@@ -10,6 +10,7 @@ interface Params {
 
 const EDITABLE_FIELDS: (keyof EventUpdate)[] = [
   "title", "time", "description", "location", "event_type",
+  "travellers", "tags", "booking_url",
 ];
 
 export async function PATCH(req: NextRequest, { params }: Params) {

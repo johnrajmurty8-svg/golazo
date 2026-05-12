@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getAuthUser, apiError, isValidUUID, getTripRole, requireOrganiser } from "@/lib/utils/api-helpers";
+import { createAdminClient } from "@/lib/supabase/server";
 import type { Database } from "@/types/database";
 
 type TripUpdate = Database["public"]["Tables"]["trips"]["Update"];
@@ -89,12 +90,29 @@ export async function DELETE(_req: NextRequest, { params }: Params) {
     const guard = await requireOrganiser(supabase, tripId, user.id);
     if (guard !== true) return guard;
 
-    const { error } = await supabase
+    // requireOrganiser already validated the user is the trip's organiser
+    // via trip_members. Use the admin client (service-role, no user JWT) so
+    // the soft-delete bypasses the trips.organiser_id-based RLS — the two
+    // organiser sources can drift (trip_members.role is the canonical source
+    // of truth), and the user-scoped client was returning 42501 on the
+    // post-update WITH CHECK phase.
+    const admin = createAdminClient();
+    const { error } = await admin
       .from("trips")
       .update({ deleted_at: new Date().toISOString() })
       .eq("id", tripId);
 
-    if (error) return apiError(error.message, 500);
+    if (error) {
+      console.error("[DELETE /api/trips/[tripId]] supabase update error", {
+        tripId,
+        userId: user.id,
+        code: error.code,
+        message: error.message,
+        details: error.details,
+        hint: error.hint,
+      });
+      return apiError(error.message, 500);
+    }
     return new NextResponse(null, { status: 204 });
   } catch (err) {
     console.error("[DELETE /api/trips/[tripId]]", err);

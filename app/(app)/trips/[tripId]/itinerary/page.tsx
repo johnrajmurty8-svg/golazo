@@ -1,7 +1,6 @@
 import { redirect, notFound } from "next/navigation";
-import { CalendarDays } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
-import { DaySection } from "@/components/itinerary/DaySection";
+import { ItineraryView } from "@/components/itinerary/ItineraryView";
 
 interface ItineraryPageProps {
   params: Promise<{ tripId: string }>;
@@ -32,73 +31,76 @@ export default async function ItineraryPage({ params }: ItineraryPageProps) {
 
   if (!trip) notFound();
 
-  // Fetch days
-  const { data: days } = await supabase
-    .from("itinerary_days")
-    .select("*")
-    .eq("trip_id", tripId)
-    .order("date", { ascending: true });
+  // Fetch days, events, members (for traveller multi-select), and the supporting
+  // tables needed to resolve event source documents.
+  const [
+    { data: days },
+    { data: events },
+    { data: members },
+    { data: flights },
+    { data: accommodation },
+    { data: docs },
+  ] = await Promise.all([
+    supabase.from("itinerary_days").select("*").eq("trip_id", tripId).order("date", { ascending: true }),
+    supabase.from("itinerary_events").select("*").eq("trip_id", tripId).order("sort_order", { ascending: true }),
+    supabase
+      .from("trip_members")
+      .select("user_id, profiles:profiles!inner(display_name)")
+      .eq("trip_id", tripId),
+    supabase.from("parsed_flights").select("id, source_document_id").eq("trip_id", tripId),
+    supabase.from("parsed_accommodation").select("id, source_document_id").eq("trip_id", tripId),
+    supabase.from("documents").select("id, file_name").eq("trip_id", tripId),
+  ]);
 
-  // Fetch all events for this trip
-  const { data: events } = await supabase
-    .from("itinerary_events")
-    .select("*")
-    .eq("trip_id", tripId)
-    .order("sort_order", { ascending: true });
+  // Build event → source document map (resolve via parsed_flights / parsed_accommodation)
+  const docNameById: Record<string, string> = {};
+  for (const d of docs ?? []) docNameById[d.id] = d.file_name;
 
-  const eventsByDay = (events ?? []).reduce<Record<string, typeof events>>((acc, ev) => {
-    if (!ev) return acc;
-    acc[ev.day_id] = acc[ev.day_id] ?? [];
-    acc[ev.day_id]!.push(ev);
-    return acc;
-  }, {});
+  const entityToDocId = new Map<string, string>();
+  for (const f of flights ?? []) {
+    if (f.source_document_id) entityToDocId.set(f.id, f.source_document_id);
+  }
+  for (const a of accommodation ?? []) {
+    if (a.source_document_id) entityToDocId.set(a.id, a.source_document_id);
+  }
+
+  const eventSourceById: Record<string, { docId: string; fileName: string }> = {};
+  for (const ev of events ?? []) {
+    // Prefer the direct event → document link. Fall back to the entity hop
+    // (event → parsed_flight/accommodation → document) for legacy events
+    // parsed before migration 016 added source_document_id.
+    let docId: string | null = ev.source_document_id ?? null;
+    if (!docId && ev.source_entity_id) {
+      docId = entityToDocId.get(ev.source_entity_id) ?? null;
+    }
+    if (!docId) continue;
+    const fileName = docNameById[docId];
+    if (!fileName) continue;
+    eventSourceById[ev.id] = { docId, fileName };
+  }
+
+  type MemberRow = {
+    user_id: string;
+    profiles: { display_name: string } | { display_name: string }[];
+  };
+  const tripMembers = (members as MemberRow[] | null ?? []).map((m) => {
+    const p = Array.isArray(m.profiles) ? m.profiles[0] : m.profiles;
+    return { user_id: m.user_id, display_name: p?.display_name ?? "Unknown" };
+  });
 
   return (
     <div className="flex-1 p-6 lg:p-8 max-w-3xl">
-      {/* Header */}
-      <div className="flex items-center gap-3 mb-8">
-        <div className="w-10 h-10 rounded-[var(--radius-md)] bg-[var(--color-primary-light)] flex items-center justify-center">
-          <CalendarDays size={20} strokeWidth={1.5} className="text-[var(--color-primary)]" />
-        </div>
-        <div>
-          <h1
-            className="text-[var(--font-size-xl)] font-[var(--font-weight-bold)] text-[var(--color-text-primary)]"
-            style={{ fontFamily: "var(--font-display)" }}
-          >
-            Itinerary
-          </h1>
-          <p className="text-[var(--font-size-sm)] text-[var(--color-text-secondary)]">
-            {trip.name}
-          </p>
-        </div>
-      </div>
-
-      {/* Days */}
-      {!days || days.length === 0 ? (
-        <div className="flex flex-col items-center justify-center py-16 text-center">
-          <div className="w-14 h-14 rounded-full bg-[var(--color-surface-secondary)] flex items-center justify-center mb-4">
-            <CalendarDays size={24} strokeWidth={1.5} className="text-[var(--color-text-muted)]" />
-          </div>
-          <p className="text-[var(--font-size-md)] font-[var(--font-weight-semibold)] text-[var(--color-text-primary)]">
-            No itinerary yet
-          </p>
-          <p className="text-[var(--font-size-sm)] text-[var(--color-text-secondary)] mt-1 max-w-xs">
-            Parse your booking documents to automatically build your itinerary.
-          </p>
-        </div>
-      ) : (
-        <div className="space-y-0">
-          {days.map((day) => (
-            <DaySection
-              key={day.id}
-              day={day}
-              events={eventsByDay[day.id] ?? []}
-              isOrganiser={isOrganiser}
-              tripId={tripId}
-            />
-          ))}
-        </div>
-      )}
+      <ItineraryView
+        tripId={tripId}
+        tripName={trip.name}
+        tripStart={trip.start_date}
+        tripEnd={trip.end_date}
+        isOrganiser={isOrganiser}
+        initialDays={days ?? []}
+        initialEvents={events ?? []}
+        eventSourceById={eventSourceById}
+        tripMembers={tripMembers}
+      />
     </div>
   );
 }

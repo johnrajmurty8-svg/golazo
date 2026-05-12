@@ -260,9 +260,13 @@ export type Database = {
           location: string | null;
           event_type: "flight" | "accommodation" | "activity" | "transfer" | "general";
           source_entity_id: string | null;
+          source_document_id: string | null;
           confidence_score: number;
           is_locked: boolean;
           sort_order: number;
+          travellers: string[] | null;
+          tags: string[] | null;
+          booking_url: string | null;
           created_at: string;
           updated_at: string;
         };
@@ -276,9 +280,13 @@ export type Database = {
           location?: string | null;
           event_type?: "flight" | "accommodation" | "activity" | "transfer" | "general";
           source_entity_id?: string | null;
+          source_document_id?: string | null;
           confidence_score?: number;
           is_locked?: boolean;
           sort_order?: number;
+          travellers?: string[] | null;
+          tags?: string[] | null;
+          booking_url?: string | null;
           created_at?: string;
           updated_at?: string;
         };
@@ -288,11 +296,41 @@ export type Database = {
           description?: string | null;
           location?: string | null;
           event_type?: "flight" | "accommodation" | "activity" | "transfer" | "general";
+          source_document_id?: string | null;
           confidence_score?: number;
           is_locked?: boolean;
           sort_order?: number;
+          travellers?: string[] | null;
+          tags?: string[] | null;
+          booking_url?: string | null;
           updated_at?: string;
         };
+        Relationships: [];
+      };
+      event_attachments: {
+        Row: {
+          id: string;
+          event_id: string;
+          trip_id: string;
+          file_name: string;
+          storage_path: string;
+          file_size: number;
+          mime_type: string;
+          uploaded_by: string;
+          uploaded_at: string;
+        };
+        Insert: {
+          id?: string;
+          event_id: string;
+          trip_id: string;
+          file_name: string;
+          storage_path: string;
+          file_size: number;
+          mime_type: string;
+          uploaded_by: string;
+          uploaded_at?: string;
+        };
+        Update: never;
         Relationships: [];
       };
       action_alerts: {
@@ -390,6 +428,7 @@ export type ParsedFlight = Database["public"]["Tables"]["parsed_flights"]["Row"]
 export type ParsedAccommodation = Database["public"]["Tables"]["parsed_accommodation"]["Row"];
 export type ItineraryDay = Database["public"]["Tables"]["itinerary_days"]["Row"];
 export type ItineraryEvent = Database["public"]["Tables"]["itinerary_events"]["Row"];
+export type EventAttachment = Database["public"]["Tables"]["event_attachments"]["Row"];
 export type ActionAlert = Database["public"]["Tables"]["action_alerts"]["Row"];
 export type ChatMessage = Database["public"]["Tables"]["chat_messages"]["Row"];
 export type AiAuditLog = Database["public"]["Tables"]["ai_audit_log"]["Row"];

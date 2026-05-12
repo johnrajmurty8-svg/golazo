@@ -34,3 +34,6 @@ yarn-error.log*
 # TypeScript
 *.tsbuildinfo
 next-env.d.ts
+
+# Test/prototype documents — contain real PII (names, flight numbers, confirmation codes)
+docs/Prototype doc/

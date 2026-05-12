@@ -8,10 +8,15 @@ const anthropic = new Anthropic({
   apiKey: process.env.ANTHROPIC_API_KEY,
 });
 
+type ContentBlock = Anthropic.Messages.MessageParam["content"];
+
 interface CallClaudeOptions {
   agent: "parser" | "chatbot";
   systemPrompt: string;
-  userPrompt: string;
+  /** Simple text prompt — used by chatbot. Ignored when userContent is provided. */
+  userPrompt?: string;
+  /** Rich content array (text + document blocks) — used by parser for PDF support. */
+  userContent?: ContentBlock;
   maxTokens: number;
   tripId?: string;
   userId?: string;
@@ -30,12 +35,15 @@ interface CallClaudeResult {
 export async function callClaude(
   opts: CallClaudeOptions
 ): Promise<CallClaudeResult> {
-  const { agent, systemPrompt, userPrompt, maxTokens, tripId, userId } = opts;
+  const { agent, systemPrompt, userPrompt, userContent, maxTokens, tripId, userId } = opts;
 
+  const hashInput = systemPrompt + (userPrompt ?? "[rich-content]");
   const promptHash = crypto
     .createHash("sha256")
-    .update(systemPrompt + userPrompt)
+    .update(hashInput)
     .digest("hex");
+
+  const messageContent: ContentBlock = userContent ?? (userPrompt ?? "");
 
   let content = "";
   let inputTokens = 0;
@@ -47,7 +55,7 @@ export async function callClaude(
       model: MODEL,
       max_tokens: maxTokens,
       system: systemPrompt,
-      messages: [{ role: "user", content: userPrompt }],
+      messages: [{ role: "user", content: messageContent }],
     });
 
     content =

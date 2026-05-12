@@ -24,11 +24,20 @@ export default async function FlightsPage({ params }: FlightsPageProps) {
 
   const isOrganiser = membership.role === "organiser";
 
-  const { data: flights } = await supabase
-    .from("parsed_flights")
-    .select("*")
-    .eq("trip_id", tripId)
-    .order("departure_date", { ascending: true });
+  const [{ data: flights }, { data: docs }] = await Promise.all([
+    supabase
+      .from("parsed_flights")
+      .select("*")
+      .eq("trip_id", tripId)
+      .order("departure_date", { ascending: true }),
+    supabase
+      .from("documents")
+      .select("id, file_name")
+      .eq("trip_id", tripId),
+  ]);
+
+  const docNameById: Record<string, string> = {};
+  for (const d of docs ?? []) docNameById[d.id] = d.file_name;
 
   return (
     <div className="flex-1 p-6 lg:p-8">
@@ -54,6 +63,7 @@ export default async function FlightsPage({ params }: FlightsPageProps) {
         tripId={tripId}
         initialFlights={flights ?? []}
         isOrganiser={isOrganiser}
+        docNameById={docNameById}
       />
     </div>
   );

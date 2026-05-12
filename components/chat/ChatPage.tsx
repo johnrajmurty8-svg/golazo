@@ -49,7 +49,7 @@ export function ChatPage({
       const res = await fetch(`/api/trips/${tripId}/chat`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ content: text }),
+        body: JSON.stringify({ message: text }),
       });
 
       const data = await res.json();
@@ -66,12 +66,14 @@ export function ChatPage({
         return;
       }
 
-      // Replace optimistic + add assistant response
+      // Replace optimistic + add assistant response. Guard against a missing
+      // userMessage/assistantMessage in the API response so a partial body
+      // can't poison the array with `undefined` and crash the messages.map.
       setMessages((prev) => [
         ...prev.filter((m) => m.id !== optimistic.id),
         data.userMessage,
         data.assistantMessage,
-      ]);
+      ].filter((m): m is ChatMessageType => Boolean(m?.id)));
     } catch {
       toast.error("AI service unavailable. Please try again shortly.");
       setMessages((prev) => prev.filter((m) => m.id !== optimistic.id));

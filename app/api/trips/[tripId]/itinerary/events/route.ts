@@ -23,7 +23,17 @@ export async function POST(req: NextRequest, { params }: Params) {
       return apiError("Invalid JSON body", 400);
     }
 
-    const { date, title, time, description, location, event_type } = body as Record<string, unknown>;
+    const {
+      date,
+      title,
+      time,
+      description,
+      location,
+      event_type,
+      travellers,
+      tags,
+      booking_url,
+    } = body as Record<string, unknown>;
 
     const VALID_EVENT_TYPES = ["flight", "accommodation", "activity", "transfer", "general"] as const;
     type EventType = typeof VALID_EVENT_TYPES[number];
@@ -32,6 +42,16 @@ export async function POST(req: NextRequest, { params }: Params) {
       return apiError("date is required (YYYY-MM-DD)", 400);
     if (typeof title !== "string" || title.trim().length === 0)
       return apiError("title is required", 400);
+
+    const sanitisedTravellers = Array.isArray(travellers)
+      ? travellers.filter((t): t is string => typeof t === "string" && t.trim().length > 0).map((t) => t.trim())
+      : null;
+    const sanitisedTags = Array.isArray(tags)
+      ? tags.filter((t): t is string => typeof t === "string" && t.trim().length > 0).map((t) => t.trim())
+      : null;
+    const sanitisedBookingUrl = typeof booking_url === "string" && booking_url.trim().length > 0
+      ? booking_url.trim()
+      : null;
 
     const { data: existingDay } = await supabase
       .from("itinerary_days")
@@ -65,6 +85,9 @@ export async function POST(req: NextRequest, { params }: Params) {
         event_type: (typeof event_type === "string" && VALID_EVENT_TYPES.includes(event_type as EventType))
           ? (event_type as EventType)
           : "general",
+        travellers: sanitisedTravellers && sanitisedTravellers.length > 0 ? sanitisedTravellers : null,
+        tags: sanitisedTags && sanitisedTags.length > 0 ? sanitisedTags : null,
+        booking_url: sanitisedBookingUrl,
         confidence_score: 1.0,
         is_locked: true,
       })
