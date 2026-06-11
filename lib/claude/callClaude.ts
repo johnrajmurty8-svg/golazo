@@ -79,8 +79,8 @@ export async function callClaude(
         response_summary: content ? content.slice(0, 500) : null,
         error: error ?? null,
       });
-    } catch {
-      // Audit log failure must not break the main flow
+    } catch (auditErr) {
+      console.error("[callClaude] ai_audit_log insert failed:", auditErr);
     }
   }
 
